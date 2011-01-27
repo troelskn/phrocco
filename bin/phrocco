@@ -9,7 +9,12 @@ if (count($argv)>1) {
     if (!$args["i"]) die("** Error: No input file or directory specified\n");
     if (!$args["o"]) echo "** No output directory specified, outputting to current directory\n";
 
-    if (substr($args["i"], 0, 1) != "/") $args["i"] = getcwd()."/".$args["i"];
+    if (is_string($args["i"])) {
+        $args["i"] = array($args["i"]);
+    }
+    foreach ($args["i"] as $index => $path) {
+        if (substr($path, 0, 1) != "/") $args["i"][$index] = getcwd()."/".$path;
+    }
     if (substr($args["o"], 0, 1) != "/") $args["o"] = getcwd()."/".$args["o"];
     $group = new PhroccoGroup($args);
 } else {

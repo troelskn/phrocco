@@ -67,10 +67,27 @@ class PhroccoGroup {
     public $group = array();
 
     public function __construct($options) {
-        $this->default['i'] = dirname(__FILE__);
+        $this->default['i'] = array(dirname(__FILE__));
+	$this->default['b'] = getcwd();
         $sources = array();
         $this->options = $options + $this->defaults;
-        $dir_iterator = new PhroccoIterator($this->options["i"]);
+
+        foreach ($options["i"] as $path) {
+            $this->addPath($path, $this->options['b']);
+        }
+        foreach($this->group as $name=>$file) {
+            $file->sources = $this->sources;
+            echo "*** Processing: ".$name."\n";
+            $file->render();
+        }
+    }
+
+    protected function addPath($path, $base_path) {
+        if (is_file($path)) {
+            $this->addFile(new SplFileInfo($path), $base_path);
+	    return;
+        }
+        $dir_iterator = new PhroccoIterator($path);
         $iterator = new RecursiveIteratorIterator(
             $dir_iterator,
             RecursiveIteratorIterator::SELF_FIRST
@@ -82,34 +99,31 @@ class PhroccoGroup {
                 in_array($iterator->getExtension(), $this->extensions[$this->options["l"]])
             )
             {
-                $base_path = $this->options["i"];
-                $rpath = str_replace($base_path, "",$file->getPath());
-                $phrocco = new Phrocco($this->options["l"], $file);
-
-                if(!$this->options["o"]) $output_dir = $file->getPath();
-                else $output_dir = $this->options["o"];
-
-                if($rpath !=$file->getPath()) $output_dir.="/".$rpath;
-                if(!is_writable($output_dir)) @mkdir($output_dir, 0777, true);
-                if(!is_writable($output_dir)) throw new Exception("Invalid Output Directory - Couldn't Create Because of Permissions");
-
-                $file_out = $output_dir."/".$file->getBasename($iterator->getExtension())."html";
-                $phrocco->output_file = $file_out;
-                $subpath = $iterator->getSubPath();
-                $phrocco->path = (!empty($subpath) ? "./" : '') . $subpath;
-                $this->group[$file->getBasename()] = $phrocco;
-                $subpath .= (!empty($subpath) ? '/' : '');
-                $this->sources[] = array(
-                  "url"=>$subpath.$file->getBasename($iterator->getExtension())."html",
-                  "name"=>$file->getBasename()
-                );
+	        $this->addFile($file, $base_path);
             }
         }
+    }
 
-        foreach($this->group as $name=>$file) {
-            $file->sources = $this->sources;
-            echo "*** Processing: ".$name."\n";
-            $file->render();
-        }
+    protected function addFile($file, $base_path) {
+        $rpath = str_replace($base_path, "",$file->getPath());
+        $phrocco = new Phrocco($this->options["l"], $file);
+
+        if(!$this->options["o"]) $output_dir = $file->getPath();
+        else $output_dir = $this->options["o"];
+
+        if($rpath !=$file->getPath()) $output_dir.="/".$rpath;
+        if(!is_writable($output_dir)) @mkdir($output_dir, 0777, true);
+        if(!is_writable($output_dir)) throw new Exception("Invalid Output Directory - Couldn't Create Because of Permissions");
+
+        $file_out = $output_dir."/".preg_replace('/[.][^.]+$/', '.html', $file->getBasename());
+        $phrocco->output_file = $file_out;
+        $subpath = "";
+        $phrocco->path = (!empty($subpath) ? "./" : '') . $subpath;
+        $this->group[$file->getBasename()] = $phrocco;
+        $subpath .= (!empty($subpath) ? '/' : '');
+        $this->sources[] = array(
+          "url"=>$subpath.preg_replace('/[.][^.]+$/', '.html', $file->getBasename()),
+          "name"=>$file->getBasename()
+        );
     }
 }
